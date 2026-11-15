@@ -7,8 +7,9 @@
 
 int sendFile(SOCKET socket, const char* filePath, char* username) {
 
-    FILE* file = fopen(filePath, "rb");
-    if (file == NULL) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, filePath, "rb");
+    if (err != 0 || file == NULL) {
         sendMessage(socket, "[ERROR] FILE NOT FOUND", sizeof("[ERROR] FILE NOT FOUND"));
         return 1;
     }
@@ -37,7 +38,6 @@ int sendFile(SOCKET socket, const char* filePath, char* username) {
     }
 
 
-    printf("DEBUG: SENDING %s", initFileTransportMessage);
 
     if (sendMessage(socket, initFileTransportMessage, strlen(initFileTransportMessage)) == SOCKET_ERROR) {
         fclose(file);

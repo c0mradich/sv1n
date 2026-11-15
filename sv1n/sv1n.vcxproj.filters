@@ -51,7 +51,7 @@
     <ClCompile Include="connect.h">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="SCREENSHOT.c">
+    <ClCompile Include="SCREENSHOT.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>

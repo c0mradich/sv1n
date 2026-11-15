@@ -143,13 +143,13 @@
     <ClCompile Include="cleint.c" />
     <ClCompile Include="commands.c" />
     <ClCompile Include="connect.c" />
-    <ClCompile Include="connect.h" />
+
     <ClCompile Include="extract.c" />
     <ClCompile Include="getIP.c" />
     <ClCompile Include="help.c" />
     <ClCompile Include="Log.c" />
     <ClCompile Include="ReadFile.c" />
-    <ClCompile Include="SCREENSHOT.c" />
+    <ClCompile Include="SCREENSHOT.cpp" />
     <ClCompile Include="sendMessage.c" />
     <ClCompile Include="Server.c" />
     <ClCompile Include="sv1n.c" />

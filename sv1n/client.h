@@ -27,8 +27,10 @@ typedef struct {
 
 void sendClientList(SOCKET clientSocket);
 void broadcastMessage(SOCKET sender, const char* message, int len);
+
 int recvAll(SOCKET socket, char* buffer, int length);
-int sendAll(SOCKET socket, const char* buffer, int length);
+int sendAll(SOCKET socket, const void* buffer, int length);
+
 void removeClient(const char* username);
 int registerClient(SOCKET clientSocket, char** usernameOut, HANDLE hConsole);
 

@@ -3,13 +3,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "extract.h"
-#include "help.h"
-#include "client.h"
-#include "commands.h"
-#include "Server.h"
-#include "getIP.h"
-
 #ifdef _WIN32
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include <winsock2.h>
@@ -17,25 +10,33 @@
 #include <windows.h>
 #pragma comment(lib, "Ws2_32.lib")
 
-HANDLE initWindowsConsole() {
-		SetConsoleCP(CP_UTF8);
-		SetConsoleOutputCP(CP_UTF8);
-
-		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-
-		if (hConsole == INVALID_HANDLE_VALUE)
-		{
-			fprintf(stderr, "GetStdHandle failed\n");
-			return INVALID_HANDLE_VALUE;
-		}
-
-		return hConsole;
-}
-
+//#pragma comment(linker, "/SUBSYSTEM:windows /ENTRY:mainCRTStartup")
 #endif
+#include "extract.h"
+#include "help.h"
+#include "client.h"
+#include "commands.h"
+#include "Server.h"
+#include "getIP.h"
 
 
 
+
+
+#ifdef _WIN32
+HANDLE initWindowsConsole() {
+	SetConsoleCP(CP_UTF8);
+	SetConsoleOutputCP(CP_UTF8);
+
+	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+	if (hConsole == INVALID_HANDLE_VALUE) {
+		fprintf(stderr, "GetStdHandle failed\n");
+		return INVALID_HANDLE_VALUE;
+	}
+
+	return hConsole;
+}
+#endif
 CRITICAL_SECTION clientsLock;
 Client clients[100];
 int clientscount = 0;
@@ -55,6 +56,8 @@ int main(int argc, char* argv[]) {
 
 	HANDLE hConsole = initWindowsConsole();
 
+	SetConsoleCtrlHandler(ConsoleHandler, TRUE);
+
 	if (hConsole == INVALID_HANDLE_VALUE || hConsole == NULL)
 	{
 		fprintf(stderr, "Error occurred\n");
@@ -66,12 +69,17 @@ int main(int argc, char* argv[]) {
 	char* port = "5000";
 	char* host = "127.0.0.1";
 
-	int listenMode = 0;
+	int listenMode = 1;
 	int autoconnect = 0;
 
 	for (int i = 1; i < argc; i++) {
 		if (strcmp(argv[i], "--help") == 0) {
 			showHelp();
+			return 0;
+		}
+
+		if (strcmp(argv[i], "--version" == 0)) {
+			printf("version: 1.1.2\n");
 			return 0;
 		}
 
@@ -109,10 +117,12 @@ int main(int argc, char* argv[]) {
 				fprintf(stderr, "--host requires a value\n");
 				return EXIT_FAILURE;
 			}
+			listenMode = 0;
 			host = argv[i + 1];
 		}
 		else if (strcmp(argv[i], "-a") == 0) {
 			autoconnect = 1;
+			listenMode = 0;
 		}
 	}
 
@@ -153,8 +163,6 @@ int main(int argc, char* argv[]) {
 				clientFunc(username, host, port, hConsole, 0);
 			}
 		}
-
-	SetConsoleCtrlHandler(ConsoleHandler, TRUE);
 
 	WSACleanup();
 	DeleteCriticalSection(&clientsLock);

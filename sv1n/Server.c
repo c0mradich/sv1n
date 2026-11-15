@@ -147,7 +147,7 @@ void serverFunc(char* port, HANDLE hConsole) {
 		return;
 	}
 
-	activeSocket = serverSocket;
+	*activeSocket = serverSocket;
 
 	printf("%s %s\n", "[*] Listening on port", port);
 	printf("[*] Waiting for clients...\n");

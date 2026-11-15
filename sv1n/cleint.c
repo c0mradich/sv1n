@@ -1,10 +1,11 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <windows.h>
 #include <string.h>
-
+#include "SCREENSHOT.h"
 #include "extract.h"
 #include "client.h"
 #include "sendMessage.h"
@@ -200,6 +201,7 @@ int recvAll(SOCKET socket, char* buffer, int length)
 {
     int totalReceived = 0;
 
+
     while (totalReceived < length) {
 
         int received = recv(
@@ -210,23 +212,25 @@ int recvAll(SOCKET socket, char* buffer, int length)
         );
 
         if (received == 0) {
-            return 0; // disconnected
+                        return 0; // disconnected
         }
 
         if (received == SOCKET_ERROR) {
-            return SOCKET_ERROR;
+            int err = WSAGetLastError();
+                        return SOCKET_ERROR;
         }
 
         totalReceived += received;
-    }
+            }
 
-    return totalReceived;
+        return totalReceived;
 }
 
 int sendAll(SOCKET socket, const void* buffer, int length)
 {
 	int totalSent = 0;
 	const char* ptr = (const char*)buffer;
+
 
 	while (totalSent < length)
 	{
@@ -237,13 +241,15 @@ int sendAll(SOCKET socket, const void* buffer, int length)
 			0
 		);
 
-		if (bytesSent <= 0)
-			return SOCKET_ERROR;
+		if (bytesSent <= 0) {
+			int err = WSAGetLastError();
+						return SOCKET_ERROR;
+		}
 
 		totalSent += bytesSent;
-	}
+			}
 
-	return totalSent;
+		return totalSent;
 }
 
 //CLIENT
@@ -251,29 +257,19 @@ int sendAll(SOCKET socket, const void* buffer, int length)
 //Client Receive Worker
 
 BOOL WINAPI ConsoleHandler(DWORD signal)
-
 {
 	switch (signal)
 	{
 	case CTRL_C_EVENT:
 	case CTRL_BREAK_EVENT:
-
-		printf("\n[INFO] Shutting down...\n");
-
-		if (activeSocket != INVALID_SOCKET)
-		{
-			shutdown(activeSocket, SD_BOTH);
-		}
-
-		return TRUE;
+		if (activeSocket != NULL && *activeSocket != INVALID_SOCKET)
+			shutdown(*activeSocket, SD_BOTH);
+		return FALSE;
 	}
-
 	return FALSE;
 }
 
-
-DWORD WINAPI receiverWorker(LPVOID lpParam)
-{
+DWORD WINAPI receiverWorker(LPVOID lpParam){
 	ClientReceiverData* data = (ClientReceiverData*)lpParam;
 
 	SOCKET clientSocket = data->socket;
@@ -289,7 +285,6 @@ DWORD WINAPI receiverWorker(LPVOID lpParam)
 	char* registerMSG = malloc(registerLength + 1);
 
 	if (registerMSG == NULL) {
-		closesocket(clientSocket);
 		return 0;
 	}
 
@@ -313,7 +308,6 @@ DWORD WINAPI receiverWorker(LPVOID lpParam)
 	free(registerMSG);
 
 	if (result == SOCKET_ERROR) {
-		closesocket(clientSocket);
 		return 0;
 	}
 
@@ -322,17 +316,25 @@ DWORD WINAPI receiverWorker(LPVOID lpParam)
 
 		uint32_t networkMessageLength;
 
+
 		result = recvAll(
 			clientSocket,
 			(char*)&networkMessageLength,
 			sizeof(networkMessageLength)
 		);
 
+
+		if (result == 0 || result == SOCKET_ERROR) {
+			logError("[ERROR] Failed to receive message length", hConsole);
+						break;
+		}
+
 		uint32_t messageLength = ntohl(networkMessageLength);
+
 
 		if (messageLength == 0 || messageLength > MAX_MESSAGE_SIZE) {
 			logError("[ERROR] Invalid message length", hConsole);
-			break;
+						break;
 		}
 
 		char* buffer = malloc((size_t)messageLength + 1);
@@ -342,21 +344,22 @@ DWORD WINAPI receiverWorker(LPVOID lpParam)
 			break;
 		}
 
+
 		result = recvAll(
 			clientSocket,
 			buffer,
 			(int)messageLength
 		);
 
+
 		if (result == 0 || result == SOCKET_ERROR) {
 			free(buffer);
 			logError("[ERROR] Disconnected from server", hConsole);
-			exit(1);
+						break;
 		}
 
 		buffer[messageLength] = '\0';
 
-		//printf("\nBUFFER: %s\n", buffer);
 
 		if (strcmp(buffer, "USERNAME_TAKEN") == 0) {
 			logError("[ERROR] This name is already taken.", hConsole);
@@ -365,7 +368,19 @@ DWORD WINAPI receiverWorker(LPVOID lpParam)
 			exit(0);
 		}
 
+
 		if (clientHandleFunc(clientSocket, username, buffer, hConsole)) {
+			free(buffer);
+			continue;
+		}
+
+		// Check if this looks like PNG data (starts with PNG signature)
+		if (messageLength >= 4 &&
+			(unsigned char)buffer[0] == 0x89 &&
+			(unsigned char)buffer[1] == 0x50 &&
+			(unsigned char)buffer[2] == 0x4E &&
+			(unsigned char)buffer[3] == 0x47) {
+			(void)saveScreenshotPNG((unsigned char*)buffer, (size_t)messageLength);
 			free(buffer);
 			continue;
 		}
@@ -381,13 +396,12 @@ DWORD WINAPI receiverWorker(LPVOID lpParam)
 				logError(buffer, hConsole);
 			}
 			else {
-				printf("%s\n", buffer);
+				printf("\n%s\n", buffer);
 			}
 			free(firstPart);
 		}
 		free(buffer);
 	}
-	closesocket(clientSocket);
 	return 0;
 }
 
@@ -455,7 +469,7 @@ void clientFunc(char* username, char* host, char* port, HANDLE hConsole, int aut
 
 	logSuccess("[+] Connected!", hConsole);
 
-	activeSocket = clientSocket;
+	*activeSocket = clientSocket;
 
 	ClientReceiverData* data = malloc(sizeof(ClientReceiverData));
 
@@ -480,7 +494,7 @@ void clientFunc(char* username, char* host, char* port, HANDLE hConsole, int aut
 		return;
 	}
 
-	CloseHandle(hThread);
+	//CloseHandle(hThread);
 
 	int usernameLen = strlen(username);
 
@@ -504,6 +518,12 @@ void clientFunc(char* username, char* host, char* port, HANDLE hConsole, int aut
 				break;
 			}
 
+			if (strcmp(message, "cls") == 0) {
+				system("cls");
+				free(message);
+				continue;
+			}
+
 			if (strncmp(message, "dataPush", 8) == 0) {
 				char* command = extractBuffer(message);
 
@@ -515,8 +535,6 @@ void clientFunc(char* username, char* host, char* port, HANDLE hConsole, int aut
 				char* opp = extractFirstPart(command);
 				char* filename = extractBuffer(command);
 
-				int res = sendFile(clientSocket, filename, opp);
-
 				if (opp == NULL || filename == NULL) {
 					free(command);
 					free(opp);
@@ -524,6 +542,8 @@ void clientFunc(char* username, char* host, char* port, HANDLE hConsole, int aut
 					free(message);
 					continue;
 				}
+
+				int res = sendFile(clientSocket, filename, opp);
 
 				if (res) {
 					logError("[ERROR] FAILED TO SEND A FILE ", hConsole);
@@ -539,9 +559,6 @@ void clientFunc(char* username, char* host, char* port, HANDLE hConsole, int aut
 			size_t bufferSize =
 				usernameLen + strlen(message) + 3;
 
-			uint32_t messageLength =
-				(uint32_t)(bufferSize - 1);
-
 			char* buffer = malloc(bufferSize);
 
 			if (buffer != NULL) {
@@ -553,6 +570,8 @@ void clientFunc(char* username, char* host, char* port, HANDLE hConsole, int aut
 					username,
 					message
 				);
+
+				size_t messageLength = strlen(buffer);
 
 				int result = sendMessage(
 					clientSocket,
@@ -570,8 +589,12 @@ void clientFunc(char* username, char* host, char* port, HANDLE hConsole, int aut
 
 		free(message);
 	}
-
+	shutdown(clientSocket, SD_BOTH);
+	WaitForSingleObject(hThread, INFINITE);
+	CloseHandle(hThread);
 	closesocket(clientSocket);
+	if (activeSocket != NULL && *activeSocket == clientSocket)
+		*activeSocket = INVALID_SOCKET;
 }
 
 Client* findUser(char* username)

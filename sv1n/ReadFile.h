@@ -4,4 +4,4 @@
 #include <stdio.h>
 
 int recvFile(SOCKET socket, FILE* file, long fileSize);
-int sendFile(SOCKET socket, char* filename, char* username);
+int sendFile(SOCKET socket, const char* filePath, char* username);

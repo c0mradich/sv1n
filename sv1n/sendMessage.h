@@ -4,3 +4,4 @@
 #include <stddef.h>
 
 int sendMessage(SOCKET socket, const char* message, size_t length);
+int sendScreenshot(SOCKET clientSocket);

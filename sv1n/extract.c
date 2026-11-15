@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 
 char* extractBuffer(char* buffer) {
 	char* splitter = strchr(buffer, ' ');
@@ -116,18 +117,33 @@ char* execCommand(const char* command) {
 	return result;
 }
 
-char* defName(char* buffer) {
-	char* pos = strchr(buffer, '>');
+DWORD startsp(char* buffer, DWORD* err, DWORD* pid) {
+	STARTUPINFOA si = { 0 };
+	PROCESS_INFORMATION pi = { 0 };
 
-	if (pos != NULL) {
-		size_t len = pos - buffer;
+	char* command = _strdup(buffer);
 
-		char* username = malloc(len+1);
-
-		memcpy(username, buffer, len);
-		username[len] = '\0';
-
-		return username;
+	si.cb = sizeof(si);
+	if (CreateProcessA(
+		NULL,       // путь к exe (можно NULL)
+		command,    // командная строка
+		NULL,       // атрибуты процесса
+		NULL,       // атрибуты потока
+		FALSE,      // наследовать handles?
+		0,          // флаги создания
+		NULL,       // окружение
+		NULL,       // рабочая директория
+		&si,
+		&pi
+	))
+	{
+		CloseHandle(pi.hProcess);
+		CloseHandle(pi.hThread);
+		free(command);
+		*pid = pi.dwProcessId;
+		return TRUE; // Процесс успешно создан
 	}
-	return NULL;
+	free(command);
+	*err = GetLastError();
+	return FALSE;
 }
